@@ -8,7 +8,6 @@ oauthlib = "*"
 requests = "*"
 requests-oauthlib = "*"
 configparser = "*"
-python3-magic = "*"
 
 [dev-packages]
 

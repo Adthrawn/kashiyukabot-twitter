@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import videoUpload
 import imageUpload
+import mediaUpload
 import os
 import sys
 import time
@@ -8,16 +9,25 @@ import configparser
 import os.path
 from os import path
 
-hastags = '\n\r #prfm #perfume_um #kashiyuka #ksyk #かしゆか'
-imageDir =''
-starttime = time.time()
+#startup configs/variables
+creds = 'credConfig.cfg'
+config = configparser.ConfigParser()
+config.read(creds)
+imageDir = config['misc']['image_dir']
+hastags = config['misc']['hastags']
+timer = int(config['misc']['timmer'])
 
+
+starttime = time.time()
+#read the last iteration from the file
 counterFile = 'counter.txt'
 file = open(counterFile, 'r')
 file_value = file.read()
 file.close()
 counter = int(file_value)
+
 def imageList():
+    #get an array of the files in the directory
     imageArray = os.listdir(imageDir)
     return imageArray
     
@@ -46,32 +56,28 @@ def newImage(int_counter,imageArray):
     return next_image
     
     
-def upload(filename,message):
-    if filename.endswith(".mp4"):
-        videoUpload.VideoTweet.video_main(filename,message)
-    else:
-        imageUpload.ImageTweet.image_main(filename,message)
-
-
 def main(int_counter):
-    config = configparser.ConfigParser()
-    config.read(creds)
-    global imageDir 
-    imageDir = config['misc']['image_dir']
+    #create the array of images in the folder
     imageArray = imageList()
     message = 'image: ' + str(int_counter) + hastags
-    upload(imageDir+imageArray[int_counter],message)
-    time.sleep(1200.0 - ((time.time() - starttime) % 1200.0))
+    #upload first image
+    mediaUpload.MediaTweet.media_main(imageDir+imageArray[int_counter],message)
+    #wait for whatever time you specified in the config file
+    time.sleep(timer - ((time.time() - starttime) % timer))
     while True:
+        #get the next image
         next_image = newImage(counter,imageArray)
+        #construct the test of the tweet
         message = 'image: ' + str(counter) + hastags
-        upload(imageDir+next_image,message)
+        #upload the file
+        mediaUpload.MediaTweet.media_main(imageDir+next_image,message)
+        #write the current iteration to a file
         file1 = open(counterFile, 'w')
         file1.write(str(counter))
         file1.close()
-        time.sleep(1200.0 - ((time.time() - starttime) % 1200.0))
+        #wait for whatever time you specified in the config file
+        time.sleep(timer - ((time.time() - starttime) % timer))
 
     
 if __name__ == '__main__':
-    creds = 'credConfig.cfg'
     main(counter)
