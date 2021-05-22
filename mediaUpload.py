@@ -8,6 +8,26 @@ import json
 import requests
 from requests_oauthlib import OAuth1
 
+#twitter endpoints
+MEDIA_ENDPOINT_URL = 'https://upload.twitter.com/1.1/media/upload.json'
+POST_TWEET_URL = 'https://api.twitter.com/1.1/statuses/update.json'
+
+#read config
+creds = 'credConfig.cfg'
+config = configparser.ConfigParser()
+config.read(creds)
+CONSUMER_KEY = config['twitter']['consumerKey']
+CONSUMER_SECRET = config['twitter']['consumerSecret']
+ACCESS_TOKEN = config['twitter']['accessToken']
+ACCESS_TOKEN_SECRET = config['twitter']['accessTokenSecret']
+
+#set oauth stuff
+oauth = OAuth1(CONSUMER_KEY,
+client_secret=CONSUMER_SECRET,
+resource_owner_key=ACCESS_TOKEN,
+resource_owner_secret=ACCESS_TOKEN_SECRET)
+
+
 class MediaTweet(object):
 
   def __init__(self, file_name, message):
@@ -32,7 +52,7 @@ class MediaTweet(object):
     
     #image file properties
     self.filename = file_name
-    self.total_bytes = os.path.getsize(self.image_filename)
+    self.total_bytes = os.path.getsize(self.filename)
     self.media_id = None
     self.processing_info = None
 
@@ -54,13 +74,13 @@ class MediaTweet(object):
       'total_bytes': self.total_bytes,
       'media_category': self.media_category
     }
-
+    
     req = requests.post(url=MEDIA_ENDPOINT_URL, data=request_data, auth=oauth)
     media_id = req.json()['media_id']
 
     self.media_id = media_id
 
-    print('Media ID: %s' % str(media_id))
+    #print('Media ID: %s' % str(media_id))
 
 
   def upload_append(self):
@@ -69,7 +89,7 @@ class MediaTweet(object):
     '''
     segment_id = 0
     bytes_sent = 0
-    file = open(self.image_filename, 'rb')
+    file = open(self.filename, 'rb')
 
     while bytes_sent < self.total_bytes:
       chunk = file.read(4*1024*1024)
@@ -85,7 +105,6 @@ class MediaTweet(object):
       files = {
         'media':chunk
       }
-
       req = requests.post(url=MEDIA_ENDPOINT_URL, data=request_data, files=files, auth=oauth)
 
       if req.status_code < 200 or req.status_code > 299:
@@ -96,9 +115,9 @@ class MediaTweet(object):
       segment_id = segment_id + 1
       bytes_sent = file.tell()
 
-      print('%s of %s bytes uploaded' % (str(bytes_sent), str(self.total_bytes)))
+      #print('%s of %s bytes uploaded' % (str(bytes_sent), str(self.total_bytes)))
 
-    print('Upload chunks complete.')
+    #print('Upload chunks complete.')
 
 
   def upload_finalize(self):
@@ -113,11 +132,11 @@ class MediaTweet(object):
     }
 
     req = requests.post(url=MEDIA_ENDPOINT_URL, data=request_data, auth=oauth)
-    print(req.json())
+    #print(req.json())
 
     self.processing_info = req.json().get('processing_info', None)
-    self.check_status()
-
+    image_status = self.check_status()
+    return image_status
 
   def check_status(self):
     '''
@@ -131,14 +150,15 @@ class MediaTweet(object):
     print('Media processing status is %s ' % state)
 
     if state == u'succeeded':
-      return
+      return state
 
     if state == u'failed':
-      sys.exit(0)
+      return state
+      #sys.exit(0)
 
     check_after_secs = self.processing_info['check_after_secs']
     
-    print('Checking after %s seconds' % str(check_after_secs))
+    #print('Checking after %s seconds' % str(check_after_secs))
     time.sleep(check_after_secs)
 
     print('STATUS')
@@ -152,7 +172,7 @@ class MediaTweet(object):
     
     self.processing_info = req.json().get('processing_info', None)
     self.check_status()
-
+    return state
 
   def tweet(self, message):
     '''
@@ -170,7 +190,12 @@ class MediaTweet(object):
     mediaTweet = MediaTweet(filename, message)
     mediaTweet.upload_init()
     mediaTweet.upload_append()
-    mediaTweet.upload_finalize()
+    image_status = mediaTweet.upload_finalize()
+    #print(image_status)
+    if image_status == 'failed':
+        return 'failed'
+    if image_status == 'pending':
+        return 'failed'
     mediaTweet.tweet(message)
 
 if __name__ == '__main__':

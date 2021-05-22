@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import videoUpload
-import imageUpload
+#import videoUpload
+#import imageUpload
 import mediaUpload
 import os
 import sys
@@ -15,8 +15,8 @@ config = configparser.ConfigParser()
 config.read(creds)
 imageDir = config['misc']['image_dir']
 hastags = config['misc']['hastags']
-timer = int(config['misc']['timmer'])
-
+#timer = int(config['misc']['timer'])
+timer = 1200.0
 
 starttime = time.time()
 #read the last iteration from the file
@@ -59,24 +59,30 @@ def newImage(int_counter,imageArray):
 def main(int_counter):
     #create the array of images in the folder
     imageArray = imageList()
-    message = 'image: ' + str(int_counter) + hastags
+    message = 'image: ' + str(int_counter) + ' ' + hastags
     #upload first image
-    mediaUpload.MediaTweet.media_main(imageDir+imageArray[int_counter],message)
-    #wait for whatever time you specified in the config file
-    time.sleep(timer - ((time.time() - starttime) % timer))
+    status = str(mediaUpload.MediaTweet.media_main(imageDir+imageArray[int_counter],message))
+    if status == 'failed':
+        print('file: '+imageArray[int_counter]+' has failed going to next file')
+    else:
+        #wait for whatever time you specified in the config file
+        time.sleep(1200.0 - ((time.time() - starttime) % 1200.0))
     while True:
         #get the next image
         next_image = newImage(counter,imageArray)
         #construct the test of the tweet
         message = 'image: ' + str(counter) + hastags
         #upload the file
-        mediaUpload.MediaTweet.media_main(imageDir+next_image,message)
+        status = mediaUpload.MediaTweet.media_main(imageDir+next_image,message)
         #write the current iteration to a file
         file1 = open(counterFile, 'w')
         file1.write(str(counter))
         file1.close()
-        #wait for whatever time you specified in the config file
-        time.sleep(timer - ((time.time() - starttime) % timer))
+        if status == 'failed':
+            print('file:'+next_image+' failed, going to next file')
+        else:
+            #wait for whatever time you specified in the config file
+            time.sleep(1200.0 - ((time.time() - starttime) % 1200.0))
 
     
 if __name__ == '__main__':
